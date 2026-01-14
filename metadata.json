@@ -1,0 +1,9 @@
+
+{
+  "name": "CodeQuest Kids",
+  "description": "An interactive, block-based programming environment for children to guide them through logic puzzles and basic computer science concepts.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
