@@ -2,13 +2,23 @@
 import React from 'react';
 import { Sparkles, Leaf, Gem, Flame, Droplets } from 'lucide-react';
 
+import { PotionState } from '../types';
+
 interface PotionLabProps {
   ingredients: string[];
   isExploding: boolean;
   isStirring: boolean;
+  potionState?: PotionState;  // 新增：药水状态
+  showStats?: boolean;         // 是否显示统计信息
 }
 
-const PotionLab: React.FC<PotionLabProps> = ({ ingredients, isExploding, isStirring }) => {
+const PotionLab: React.FC<PotionLabProps> = ({ 
+  ingredients, 
+  isExploding, 
+  isStirring, 
+  potionState,
+  showStats = false 
+}) => {
   
   // Dynamically determine color based on composition
   const getPotionColor = () => {
@@ -117,6 +127,59 @@ const PotionLab: React.FC<PotionLabProps> = ({ ingredients, isExploding, isStirr
           </div>
         ))}
       </div>
+
+      {/* Potion Stats Panel */}
+      {showStats && potionState && (
+        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-xl border-2 border-slate-200 min-w-[200px]">
+          <h4 className="font-bold text-slate-700 text-sm mb-3 border-b pb-2">🧪 药水状态</h4>
+          
+          <div className="space-y-2 text-xs">
+            {/* 温度 */}
+            <div className="flex items-center justify-between">
+              <span className="text-slate-600">🌡️ 温度</span>
+              <span className={`font-bold ${
+                potionState.temperature > 100 ? 'text-red-600' :
+                potionState.temperature < 30 ? 'text-blue-600' :
+                'text-green-600'
+              }`}>
+                {potionState.temperature}°C
+              </span>
+            </div>
+
+            {/* 魔力值 */}
+            <div className="flex items-center justify-between">
+              <span className="text-slate-600">✨ 魔力值</span>
+              <span className="font-bold text-purple-600">
+                {potionState.magicPower}
+              </span>
+            </div>
+
+            {/* 爆炸风险 */}
+            {potionState.explosionRisk > 0.3 && (
+              <div className="flex items-center justify-between">
+                <span className="text-slate-600">⚠️ 风险</span>
+                <span className={`font-bold ${
+                  potionState.explosionRisk > 0.7 ? 'text-red-600' :
+                  potionState.explosionRisk > 0.5 ? 'text-orange-600' :
+                  'text-yellow-600'
+                }`}>
+                  {(potionState.explosionRisk * 100).toFixed(0)}%
+                </span>
+              </div>
+            )}
+
+            {/* 搅拌状态 */}
+            <div className="flex items-center justify-between">
+              <span className="text-slate-600">🌀 搅拌</span>
+              <span className={`font-bold ${
+                potionState.isStirred ? 'text-green-600' : 'text-slate-400'
+              }`}>
+                {potionState.isStirred ? '✓' : '✗'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
