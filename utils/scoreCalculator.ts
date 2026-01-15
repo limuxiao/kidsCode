@@ -31,7 +31,7 @@ export const calculateTotalSteps = (program: CodeBlock[]): number => {
 
 /**
  * 计算星级评分
- * - 3星：步数 = 最优解
+ * - 3星：步数 <= 最优解（做得更好或相等）
  * - 2星：步数 <= 最优解 * 1.5
  * - 1星：步数 > 最优解 * 1.5
  * 
@@ -43,7 +43,8 @@ export const calculateStarRating = (
   actualSteps: number,
   optimalSteps: number
 ): StarRating => {
-  if (actualSteps === optimalSteps) {
+  // 步数小于等于最优解，给3星（包括做得更好的情况）
+  if (actualSteps <= optimalSteps) {
     return 3; // 完美！
   }
   

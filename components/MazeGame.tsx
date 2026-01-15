@@ -4,9 +4,10 @@ import { generateLevel } from '../utils/levelGenerator';
 import { BlockType, CodeBlock, PlayerState, LevelConfig, LevelScore } from '../types';
 import Block from './Block';
 import MapGrid from './MapGrid';
-import { Play, RefreshCw, Trophy, AlertTriangle, ArrowRight, Wand2, ArrowLeft, Home, Star, History } from 'lucide-react';
+import { Play, RefreshCw, Trophy, AlertTriangle, ArrowRight, Wand2, ArrowLeft, Home, Star, History, Volume2, VolumeX, Music } from 'lucide-react';
 import { gameProgressDB } from '../utils/gameProgressDB';
 import { calculateTotalSteps, calculateStarRating, getStarRatingText } from '../utils/scoreCalculator';
+import { soundManager } from '../utils/SoundManager';
 
 interface MazeGameProps {
   onBack: () => void;
@@ -30,6 +31,10 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [isRechallengeMode, setIsRechallengeMode] = useState(false);
   const [originalLevelId, setOriginalLevelId] = useState<number | null>(null);
+
+  // 音效和音乐控制状态
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [musicEnabled, setMusicEnabled] = useState(true);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const prevProgramLengthRef = useRef(0);
@@ -61,6 +66,16 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
     setLevel(newLevel);
     resetGame(newLevel);
   }, [currentLevelId]);
+
+  // 启动背景音乐
+  useEffect(() => {
+    soundManager.playMusic('game-bg');
+    
+    // 组件卸载时停止音乐
+    return () => {
+      soundManager.stopMusic();
+    };
+  }, []);
 
   // Auto-scroll to bottom when new blocks are added
   useEffect(() => {
@@ -228,17 +243,20 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
           tempPlayer.x = nextX;
           tempPlayer.y = nextY;
           setPlayer({ ...tempPlayer });
+          soundManager.playSound('move');
           await new Promise(r => setTimeout(r, 500));
         }
 
       } else if (cmd.type === 'TURN_LEFT') {
         tempPlayer.direction = (tempPlayer.direction - 1 + 4) % 4 as any;
         setPlayer({ ...tempPlayer });
+        soundManager.playSound('turn');
         await new Promise(r => setTimeout(r, 500));
 
       } else if (cmd.type === 'TURN_RIGHT') {
         tempPlayer.direction = (tempPlayer.direction + 1) % 4 as any;
         setPlayer({ ...tempPlayer });
+        soundManager.playSound('turn');
         await new Promise(r => setTimeout(r, 500));
 
       } else if (cmd.type === 'ATTACK') {
@@ -253,6 +271,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
         if (enemyIdx !== -1) {
           tempEnemies.splice(enemyIdx, 1);
           setActiveEnemies([...tempEnemies]);
+          soundManager.playSound('attack');
         }
         await new Promise(r => setTimeout(r, 500));
       }
@@ -264,6 +283,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
 
     if (!failed && tempPlayer.x === level.targetPos.x && tempPlayer.y === level.targetPos.y) {
       setGameState('WON');
+      soundManager.playSound('victory');
       
       // 计算步数和星级评分
       const totalSteps = calculateTotalSteps(program);
@@ -343,8 +363,40 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
                  )}
                </h1>
              </div>
-             <div className="bg-slate-900 px-3 py-1 rounded-xl text-yellow-400 font-bold border border-slate-700 text-sm">
-               {program.length} 指令
+             <div className="flex items-center gap-2">
+               {/* 音效控制按钮 */}
+               <button
+                 onClick={() => {
+                   const newState = soundManager.toggleSound();
+                   setSoundEnabled(newState);
+                 }}
+                 className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl transition-colors"
+                 title={soundEnabled ? '关闭音效' : '开启音效'}
+               >
+                 {soundEnabled ? (
+                   <Volume2 size={18} className="text-green-400" />
+                 ) : (
+                   <VolumeX size={18} className="text-slate-400" />
+                 )}
+               </button>
+               {/* 音乐控制按钮 */}
+               <button
+                 onClick={() => {
+                   const newState = soundManager.toggleMusic();
+                   setMusicEnabled(newState);
+                 }}
+                 className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl transition-colors"
+                 title={musicEnabled ? '关闭音乐' : '开启音乐'}
+               >
+                 {musicEnabled ? (
+                   <Music size={18} className="text-purple-400" />
+                 ) : (
+                   <Music size={18} className="text-slate-400" />
+                 )}
+               </button>
+               <div className="bg-slate-900 px-3 py-1 rounded-xl text-yellow-400 font-bold border border-slate-700 text-sm">
+                 {program.length} 指令
+               </div>
              </div>
           </div>
 
