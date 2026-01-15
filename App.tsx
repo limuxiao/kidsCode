@@ -16,7 +16,7 @@ const App: React.FC = () => {
   };
 
   const navigateToGame = (gameId: string) => {
-    if (gameId === 'maze-adventure') {
+    if (gameId === 'maze-game') {
       setCurrentView('MAZE_GAME');
     } else if (gameId === 'magic-shop') {
       setCurrentView('MAGIC_SHOP');

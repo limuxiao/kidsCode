@@ -57,7 +57,19 @@ export interface LevelConfig {
   targetPos: { x: number; y: number };
   walls: { x: number; y: number }[];
   enemies: { x: number; y: number }[];
-  availableBlocks: BlockType[]; 
+  availableBlocks: BlockType[];
+  optimalSteps: number; // 最优解步数
+}
+
+// 星级评分 (1-3星)
+export type StarRating = 1 | 2 | 3;
+
+// 关卡评分记录
+export interface LevelScore {
+  levelId: number;
+  stars: StarRating;
+  steps: number;
+  completedAt: number;
 }
 
 // 💰 原料品质等级

@@ -156,6 +156,42 @@ export const generateLevel = (levelId: number): LevelConfig => {
   else if (enemies.length > 0) description = "注意！前方有怪物，使用攻击指令消灭它们！";
   else if (walls.length > 0) description = "小心避开墙壁，找到正确的路。";
 
+  // 计算最优步数（基于曼哈顿距离和转向）
+  const calculateOptimalSteps = (): number => {
+    let steps = 0;
+    
+    // 曼哈顿距离
+    const manhattanDistance = Math.abs(targetPos.x - startPos.x) + Math.abs(targetPos.y - startPos.y);
+    steps += manhattanDistance;
+    
+    // 转向次数（简化计算：根据起点方向和目标位置）
+    let currentDir = startPos.direction;
+    let dx = targetPos.x - startPos.x;
+    let dy = targetPos.y - startPos.y;
+    
+    // 第一个转向
+    if (dx !== 0) {
+      const targetDir = dx > 0 ? 1 : 3; // Right or Left
+      if (currentDir !== targetDir) {
+        steps += 1; // 一次转向
+        currentDir = targetDir;
+      }
+    }
+    
+    // 第二个转向（如果需要）
+    if (dy !== 0) {
+      const targetDir = dy > 0 ? 2 : 0; // Down or Up
+      if (currentDir !== targetDir) {
+        steps += 1;
+      }
+    }
+    
+    // 攻击敌人
+    steps += enemies.length;
+    
+    return steps;
+  };
+
   return {
     id: levelId,
     title,
@@ -165,6 +201,7 @@ export const generateLevel = (levelId: number): LevelConfig => {
     targetPos,
     walls,
     enemies,
-    availableBlocks: blocks
+    availableBlocks: blocks,
+    optimalSteps: calculateOptimalSteps()
   };
 };

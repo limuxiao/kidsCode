@@ -12,6 +12,7 @@ interface BlockProps {
   onDragStart?: (e: React.DragEvent, data: CodeBlock) => void;
   onRemove?: () => void;
   onValueChange?: (val: number | string) => void;
+  onClick?: () => void;
   index?: number;
   highlight?: boolean;
 }
@@ -41,7 +42,7 @@ const CONFIG: Record<BlockType, { label: string; icon: any; color: string; input
 
 const NOTES = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
 
-const Block: React.FC<BlockProps> = ({ data, isDraggable, onDragStart, onRemove, onValueChange, highlight }) => {
+const Block: React.FC<BlockProps> = ({ data, isDraggable, onDragStart, onRemove, onValueChange, onClick, highlight }) => {
   const cfg = CONFIG[data.type];
   const Icon = cfg.icon;
 
@@ -55,15 +56,34 @@ const Block: React.FC<BlockProps> = ({ data, isDraggable, onDragStart, onRemove,
 
   const renderInput = () => {
     if (cfg.inputType === 'NUMBER') {
+      const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        // 允许空字符串（用户正在输入）
+        if (value === '') {
+          onValueChange && onValueChange(1);
+          return;
+        }
+        // 只允许数字
+        if (!/^\d+$/.test(value)) {
+          return;
+        }
+        const numValue = parseInt(value, 10);
+        // 最小值为 1
+        if (numValue >= 1) {
+          onValueChange && onValueChange(numValue);
+        }
+      };
+
       return (
         <div className="flex items-center gap-1 bg-black/20 rounded-lg px-1 py-1 flex-shrink-0">
           <input 
-            type="number" 
-            min="1" 
+            type="text" 
             value={data.value || 1}
-            onChange={(e) => onValueChange && onValueChange(Math.max(1, parseInt(e.target.value) || 1))}
-            onMouseDown={(e) => e.stopPropagation()} 
+            onChange={handleNumberChange}
+            onMouseDown={(e) => e.stopPropagation()}
+            onFocus={(e) => e.target.select()}
             className="w-12 bg-white text-gray-800 rounded text-center font-bold text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            placeholder="1"
           />
         </div>
       );
@@ -102,11 +122,12 @@ const Block: React.FC<BlockProps> = ({ data, isDraggable, onDragStart, onRemove,
     <div 
       draggable={isDraggable}
       onDragStart={handleDragStart}
+      onClick={isDraggable && onClick ? onClick : undefined}
       className={`
         relative flex items-center gap-2 p-2 rounded-xl shadow-md text-white select-none w-full
         ${cfg.color} border-b-4 transition-all duration-200
         ${highlight ? 'ring-4 ring-yellow-400 scale-105 z-10' : ''}
-        ${isDraggable ? 'cursor-grab active:cursor-grabbing hover:-translate-y-1' : ''}
+        ${isDraggable ? 'cursor-pointer hover:-translate-y-1 active:scale-95' : ''}
       `}
     >
       {/* Centipede Connectors Visuals */}

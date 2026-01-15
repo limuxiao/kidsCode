@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { generateLevel } from '../utils/levelGenerator';
-import { BlockType, CodeBlock, PlayerState, LevelConfig } from '../types';
+import { BlockType, CodeBlock, PlayerState, LevelConfig, LevelScore } from '../types';
 import Block from './Block';
 import MapGrid from './MapGrid';
-import { Play, RefreshCw, Trophy, AlertTriangle, ArrowRight, Wand2, ArrowLeft, Home } from 'lucide-react';
+import { Play, RefreshCw, Trophy, AlertTriangle, ArrowRight, Wand2, ArrowLeft, Home, Star, History } from 'lucide-react';
+import { gameProgressDB } from '../utils/gameProgressDB';
+import { calculateTotalSteps, calculateStarRating, getStarRatingText } from '../utils/scoreCalculator';
 
 interface MazeGameProps {
   onBack: () => void;
@@ -13,6 +15,8 @@ interface MazeGameProps {
 const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
   const [currentLevelId, setCurrentLevelId] = useState(1);
   const [level, setLevel] = useState<LevelConfig | null>(null);
+  const [completedLevels, setCompletedLevels] = useState<number[]>([]);
+  const [levelScores, setLevelScores] = useState<Record<number, LevelScore>>({});
   
   const [player, setPlayer] = useState<PlayerState>({ x: 0, y: 0, direction: 1 });
   const [activeEnemies, setActiveEnemies] = useState<{ x: number; y: number }[]>([]);
@@ -21,9 +25,35 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
   
   const [program, setProgram] = useState<CodeBlock[]>([]);
   const [executingIndex, setExecutingIndex] = useState<number | null>(null);
+  
+  // 历史记录功能状态
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [isRechallengeMode, setIsRechallengeMode] = useState(false);
+  const [originalLevelId, setOriginalLevelId] = useState<number | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const prevProgramLengthRef = useRef(0);
+
+  // 初始化时加载游戏进度
+  useEffect(() => {
+    const loadProgress = async () => {
+      try {
+        const progress = await gameProgressDB.getProgress('maze-game');
+        if (progress) {
+          // 如果当前关卡已完成，则跳到下一关
+          const targetLevel = progress.completedLevels.includes(progress.currentLevel)
+            ? progress.currentLevel + 1
+            : progress.currentLevel;
+          setCurrentLevelId(targetLevel);
+          setCompletedLevels(progress.completedLevels);
+          setLevelScores(progress.levelScores || {});
+        }
+      } catch (error) {
+        console.error('Failed to load game progress:', error);
+      }
+    };
+    loadProgress();
+  }, []);
 
   // Load level when ID changes
   useEffect(() => {
@@ -47,6 +77,20 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
     prevProgramLengthRef.current = program.length;
   }, [program.length]);
 
+  // 空格键快捷键：执行程序
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 空格键执行，但不在RUNNING状态且有程序时
+      if (e.code === 'Space' && gameState !== 'RUNNING' && program.length > 0) {
+        e.preventDefault(); // 防止页面滚动
+        runCode();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameState, program.length]);
+
   const resetGame = (lvl: LevelConfig) => {
     setPlayer({ ...lvl.startPos });
     setActiveEnemies([...lvl.enemies]);
@@ -56,8 +100,63 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
     setExecutingIndex(null);
   };
 
+  // 保存游戏进度
+  const saveProgress = async (levelId: number, completed: number[], scores: Record<number, LevelScore> = levelScores) => {
+    try {
+      await gameProgressDB.saveProgress('maze-game', levelId, completed, scores);
+    } catch (error) {
+      console.error('Failed to save game progress:', error);
+    }
+  };
+
+  // 获取所有未获得3星的已完成关卡
+  const getIncompleteLevels = (): number[] => {
+    return completedLevels.filter(levelId => {
+      const score = levelScores[levelId];
+      return !score || score.stars < 3;
+    }).sort((a, b) => a - b);
+  };
+
+  // 开始重新挑战某个关卡
+  const startRechallenge = (levelId: number) => {
+    setOriginalLevelId(currentLevelId);
+    setIsRechallengeMode(true);
+    setCurrentLevelId(levelId);
+    setShowHistoryModal(false);
+  };
+
+  // 返回到原始关卡
+  const returnToOriginalLevel = () => {
+    if (originalLevelId !== null) {
+      setCurrentLevelId(originalLevelId);
+    }
+    setIsRechallengeMode(false);
+    setOriginalLevelId(null);
+  };
+
+  // 继续挑战下一个未满星关卡
+  const continueToNextIncomplete = () => {
+    const incompleteLevels = getIncompleteLevels();
+    const currentIndex = incompleteLevels.indexOf(currentLevelId);
+    
+    if (currentIndex >= 0 && currentIndex < incompleteLevels.length - 1) {
+      setCurrentLevelId(incompleteLevels[currentIndex + 1]);
+    } else if (incompleteLevels.length > 0) {
+      setCurrentLevelId(incompleteLevels[0]);
+    }
+  };
+
   const handleDragStart = (e: React.DragEvent, block: CodeBlock) => {
     e.dataTransfer.setData('blockType', block.type);
+  };
+
+  const handleBlockClick = (type: BlockType) => {
+    const newBlock: CodeBlock = {
+      id: Math.random().toString(36).substr(2, 9),
+      type,
+      value: (type === 'FORWARD' || type === 'BACKWARD') ? 1 : undefined
+    };
+    setProgram(prev => [...prev, newBlock]);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -165,6 +264,35 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
 
     if (!failed && tempPlayer.x === level.targetPos.x && tempPlayer.y === level.targetPos.y) {
       setGameState('WON');
+      
+      // 计算步数和星级评分
+      const totalSteps = calculateTotalSteps(program);
+      const stars = calculateStarRating(totalSteps, level.optimalSteps);
+      
+      // 保存星级评分（只保留最高分）
+      const currentScore = levelScores[currentLevelId];
+      let updatedScores = levelScores;
+      
+      if (!currentScore || stars > currentScore.stars) {
+        const newScore: LevelScore = {
+          levelId: currentLevelId,
+          stars,
+          steps: totalSteps,
+          completedAt: Date.now()
+        };
+        updatedScores = { ...levelScores, [currentLevelId]: newScore };
+        setLevelScores(updatedScores);
+      }
+      
+      // 记录已完成的关卡并保存所有进度（包括星级）
+      let updatedCompleted = completedLevels;
+      if (!completedLevels.includes(currentLevelId)) {
+        updatedCompleted = [...completedLevels, currentLevelId];
+        setCompletedLevels(updatedCompleted);
+      }
+      
+      // 统一保存进度和星级到数据库
+      saveProgress(currentLevelId, updatedCompleted, updatedScores);
     } else {
       setGameState('LOST');
       if (failed) setIsPlayerAlive(false);
@@ -187,6 +315,32 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
                </button>
                <h1 className="text-xl font-black text-white flex items-center gap-2">
                  <Wand2 className="text-yellow-400" /> 第 {level.id} 关
+                 {/* 显示该关卡的星级评分 */}
+                 {levelScores[currentLevelId] && (
+                   <div className="flex gap-1 ml-2">
+                     {[1, 2, 3].map((star) => (
+                       <Star
+                         key={star}
+                         size={16}
+                         className={`${
+                           star <= levelScores[currentLevelId].stars
+                             ? 'text-yellow-400 fill-yellow-400'
+                             : 'text-gray-600 fill-gray-600'
+                         }`}
+                       />
+                     ))}
+                   </div>
+                 )}
+                 {/* 历史记录按钮 */}
+                 {completedLevels.length > 0 && (
+                   <button
+                     onClick={() => setShowHistoryModal(true)}
+                     className="ml-2 p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 hover:text-white transition-colors"
+                     title="查看历史分值"
+                   >
+                     <History size={16} />
+                   </button>
+                 )}
                </h1>
              </div>
              <div className="bg-slate-900 px-3 py-1 rounded-xl text-yellow-400 font-bold border border-slate-700 text-sm">
@@ -204,7 +358,8 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
                       key={type} 
                       data={{ id: 'temp', type, value: 1 }} 
                       isDraggable={true} 
-                      onDragStart={handleDragStart} 
+                      onDragStart={handleDragStart}
+                      onClick={() => handleBlockClick(type)}
                     />
                   ))}
                 </div>
@@ -280,18 +435,73 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
                  )}
                  
                  <h2 className="text-4xl font-black text-white mb-2">{gameState === 'WON' ? '挑战成功！' : '挑战失败'}</h2>
-                 <p className="text-slate-200 mb-8">{gameState === 'WON' ? '你找到了宝藏！' : (!isPlayerAlive ? '撞到了危险！' : '未到达终点')}</p>
+                 
+                 {gameState === 'WON' && levelScores[currentLevelId] && (
+                   <div className="mb-4">
+                     {/* 星级显示 */}
+                     <div className="flex gap-2 justify-center mb-3">
+                       {[1, 2, 3].map((star) => (
+                         <Star
+                           key={star}
+                           size={40}
+                           className={`${
+                             star <= levelScores[currentLevelId].stars
+                               ? 'text-yellow-400 fill-yellow-400'
+                               : 'text-gray-600 fill-gray-600'
+                           } transition-all duration-300`}
+                         />
+                       ))}
+                     </div>
+                     
+                     {/* 步数信息 */}
+                     <div className="text-center space-y-1">
+                       <p className="text-white font-bold text-lg">
+                         {getStarRatingText(levelScores[currentLevelId].stars)}
+                       </p>
+                       <p className="text-slate-300 text-sm">
+                         你的步数: <span className="font-bold text-blue-400">{levelScores[currentLevelId].steps}</span> 步
+                       </p>
+                       <p className="text-slate-300 text-sm">
+                         最优步数: <span className="font-bold text-green-400">{level.optimalSteps}</span> 步
+                       </p>
+                     </div>
+                   </div>
+                 )}
+                 
+                 {gameState === 'LOST' && (
+                   <p className="text-slate-200 mb-8">{!isPlayerAlive ? '撞到了危险！' : '未到达终点'}</p>
+                 )}
                  
                  <div className="flex gap-4">
                     {gameState === 'LOST' && (
-                        <button onClick={() => setGameState('IDLE')} className="bg-white hover:bg-gray-100 text-slate-900 px-8 py-3 rounded-xl font-bold text-xl shadow-lg">
+                        <button onClick={() => { resetGame(level!); setGameState('IDLE'); }} className="bg-white hover:bg-gray-100 text-slate-900 px-8 py-3 rounded-xl font-bold text-xl shadow-lg">
                           重试
                         </button>
                     )}
-                    {gameState === 'WON' && (
+                    {gameState === 'WON' && !isRechallengeMode && (
                         <button onClick={() => setCurrentLevelId(prev => prev + 1)} className="bg-yellow-400 hover:bg-yellow-300 text-slate-900 px-8 py-3 rounded-xl font-bold text-xl shadow-lg">
                           下一关
                         </button>
+                    )}
+                    {gameState === 'WON' && isRechallengeMode && (
+                      <>
+                        <button 
+                          onClick={returnToOriginalLevel}
+                          className="bg-blue-500 hover:bg-blue-400 text-white px-6 py-3 rounded-xl font-bold text-lg shadow-lg flex items-center gap-2"
+                        >
+                          <ArrowLeft size={20} />
+                          返回原关卡
+                        </button>
+                        {getIncompleteLevels().filter(id => id !== currentLevelId).length > 0 && (
+                          <button 
+                            onClick={continueToNextIncomplete}
+                            className="bg-orange-500 hover:bg-orange-400 text-white px-6 py-3 rounded-xl font-bold text-lg shadow-lg flex items-center gap-2"
+                          >
+                            继续挑战
+                            <ArrowRight size={20} />
+                          </button>
+                        )}
+                      </>
                     )}
                  </div>
                </div>
@@ -309,6 +519,85 @@ const MazeGame: React.FC<MazeGameProps> = ({ onBack }) => {
         </div>
 
       </div>
+
+      {/* 历史分值弹窗 */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-3xl border-4 border-slate-700 p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                <History className="text-yellow-400" size={28} />
+                历史分值记录
+              </h2>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="text-slate-400 hover:text-white text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {completedLevels.length === 0 ? (
+                <p className="text-slate-400 text-center py-8">暂无完成的关卡</p>
+              ) : (
+                completedLevels.sort((a, b) => a - b).map((levelId) => {
+                  const score = levelScores[levelId];
+                  const stars = score?.stars || 0;
+                  const isIncomplete = stars < 3;
+
+                  return (
+                    <div
+                      key={levelId}
+                      className={`bg-slate-900 rounded-xl p-4 border-2 ${
+                        isIncomplete
+                          ? 'border-orange-500 hover:border-orange-400'
+                          : 'border-slate-700'
+                      } transition-all ${
+                        isIncomplete ? 'cursor-pointer hover:bg-slate-800' : ''
+                      }`}
+                      onClick={() => isIncomplete && startRechallenge(levelId)}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <div className="text-white font-black text-lg">
+                            第 {levelId} 关
+                          </div>
+                          <div className="flex gap-1">
+                            {[1, 2, 3].map((star) => (
+                              <Star
+                                key={star}
+                                size={20}
+                                className={`${
+                                  star <= stars
+                                    ? 'text-yellow-400 fill-yellow-400'
+                                    : 'text-gray-600 fill-gray-600'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          {score && (
+                            <div className="text-slate-400 text-sm">
+                              步数: <span className="text-white font-bold">{score.steps}</span>
+                            </div>
+                          )}
+                          {isIncomplete && (
+                            <div className="bg-orange-500 text-white px-3 py-1 rounded-lg text-sm font-bold">
+                              重新挑战
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

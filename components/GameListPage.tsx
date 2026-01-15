@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import CourseCard from './CourseCard';
 import { Map, FlaskConical, Music, Gamepad2, ArrowLeft } from 'lucide-react';
 import { Course } from '../types';
+import { gameProgressDB } from '../utils/gameProgressDB';
 
 interface GameListPageProps {
   onSelectGame: (gameId: string) => void;
@@ -11,7 +12,7 @@ interface GameListPageProps {
 
 const COURSES: Course[] = [
   {
-    id: 'maze-adventure',
+    id: 'maze-game',
     title: '迷宫探险',
     description: '使用代码指令帮助机器人走出迷宫，收集宝藏！',
     icon: <Map size={40} className="text-blue-500" />,
@@ -34,6 +35,43 @@ const COURSES: Course[] = [
 ];
 
 const GameListPage: React.FC<GameListPageProps> = ({ onSelectGame, onBack }) => {
+  const [gameProgress, setGameProgress] = useState<Record<string, { hasProgress: boolean }>>({});
+
+  // 加载所有游戏进度
+  const loadAllProgress = async () => {
+    try {
+      const allProgress = await gameProgressDB.getAllProgress();
+      const progressMap: Record<string, { hasProgress: boolean }> = {};
+      
+      allProgress.forEach(progress => {
+        progressMap[progress.gameId] = {
+          hasProgress: progress.currentLevel > 1 || progress.completedLevels.length > 0
+        };
+      });
+      
+      setGameProgress(progressMap);
+    } catch (error) {
+      console.error('Failed to load game progress:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadAllProgress();
+  }, []);
+
+  // 重置游戏进度
+  const handleRestartGame = async (gameId: string) => {
+    const confirmed = window.confirm('确定要重新开始吗？这将清除所有进度和分数记录。');
+    if (confirmed) {
+      try {
+        await gameProgressDB.clearProgress(gameId);
+        await loadAllProgress(); // 重新加载进度
+      } catch (error) {
+        console.error('Failed to clear game progress:', error);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-12 font-sans">
       <div className="max-w-6xl mx-auto">
@@ -59,7 +97,9 @@ const GameListPage: React.FC<GameListPageProps> = ({ onSelectGame, onBack }) => 
             <div key={course.id}>
                 <CourseCard 
                   course={course} 
-                  onClick={() => onSelectGame(course.id)} 
+                  onClick={() => onSelectGame(course.id)}
+                  onRestart={() => handleRestartGame(course.id)}
+                  hasProgress={gameProgress[course.id]?.hasProgress || false}
                 />
             </div>
           ))}

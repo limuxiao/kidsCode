@@ -1,14 +1,23 @@
 
 import React from 'react';
 import { Course } from '../types';
-import { Sparkle } from 'lucide-react';
+import { Sparkle, RotateCcw } from 'lucide-react';
 
 interface CourseCardProps {
   course: Course;
   onClick: () => void;
+  onRestart?: () => void;
+  hasProgress?: boolean;
 }
 
-const CourseCard: React.FC<CourseCardProps> = ({ course, onClick }) => {
+const CourseCard: React.FC<CourseCardProps> = ({ course, onClick, onRestart, hasProgress = false }) => {
+  const handleRestart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRestart) {
+      onRestart();
+    }
+  };
+
   return (
     <div 
       onClick={onClick}
@@ -29,9 +38,23 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onClick }) => {
         <h3 className="text-3xl font-black text-gray-800 mb-3 tracking-tight">{course.title}</h3>
         <p className="text-gray-500 font-bold text-sm mb-8 leading-relaxed opacity-80">{course.description}</p>
         
-        <div className="flex items-center text-gray-800 font-black gap-2 bg-gray-50 w-fit px-4 py-2 rounded-full border-2 border-gray-100 group-hover:bg-yellow-400 group-hover:text-white group-hover:border-yellow-400 transition-all">
-          开始魔法 <Sparkle size={18} className="group-hover:animate-spin" />
-        </div>
+        {hasProgress ? (
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex items-center text-gray-800 font-black gap-2 bg-gray-50 px-4 py-2 rounded-full border-2 border-gray-100 group-hover:bg-yellow-400 group-hover:text-white group-hover:border-yellow-400 transition-all">
+              继续魔法 <Sparkle size={18} className="group-hover:animate-spin" />
+            </div>
+            <button
+              onClick={handleRestart}
+              className="flex items-center text-gray-500 hover:text-gray-800 font-bold gap-2 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-full border-2 border-gray-200 transition-all text-sm"
+            >
+              <RotateCcw size={16} /> 重新开始
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center text-gray-800 font-black gap-2 bg-gray-50 w-fit px-4 py-2 rounded-full border-2 border-gray-100 group-hover:bg-yellow-400 group-hover:text-white group-hover:border-yellow-400 transition-all">
+            开始魔法 <Sparkle size={18} className="group-hover:animate-spin" />
+          </div>
+        )}
       </div>
     </div>
   );
