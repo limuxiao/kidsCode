@@ -37,3 +37,6 @@ Port 8004 is in use, trying another one...
 02:41:51 [vite] (client) hmr update /components/GameListPage.tsx
 02:43:14 [vite] (client) hmr update /components/CourseCard.tsx
 02:44:13 [vite] (client) hmr update /components/CourseCard.tsx
+03:44:47 [vite] (client) hmr update /components/LandingPage.tsx
+03:48:05 [vite] (client) hmr update /components/LandingPage.tsx
+03:49:17 [vite] (client) page reload index.html

@@ -16,19 +16,92 @@
       .block-dragging {
         opacity: 0.5;
       }
+      
+      /* Float animation */
       @keyframes float {
-        0% {
+        0%, 100% {
           transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-20px);
+        }
+      }
+      .animate-float {
+        animation: float 6s ease-in-out infinite;
+      }
+      .animation-delay-2000 {
+        animation-delay: 2s;
+      }
+      .animation-delay-4000 {
+        animation-delay: 4s;
+      }
+      
+      /* Slow bounce */
+      @keyframes bounce-slow {
+        0%, 100% {
+          transform: translateY(0);
         }
         50% {
           transform: translateY(-10px);
         }
-        100% {
-          transform: translateY(0px);
+      }
+      .animate-bounce-slow {
+        animation: bounce-slow 2s ease-in-out infinite;
+      }
+      
+      /* Slow spin */
+      @keyframes spin-slow {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
         }
       }
-      .animate-float {
-        animation: float 3s ease-in-out infinite;
+      .animate-spin-slow {
+        animation: spin-slow 20s linear infinite;
+      }
+      
+      /* Animation delays */
+      .animation-delay-200 {
+        animation-delay: 0.2s;
+      }
+      .animation-delay-300 {
+        animation-delay: 0.3s;
+      }
+      .animation-delay-400 {
+        animation-delay: 0.4s;
+      }
+      .animation-delay-500 {
+        animation-delay: 0.5s;
+      }
+      .animation-delay-700 {
+        animation-delay: 0.7s;
+      }
+      .animation-delay-1000 {
+        animation-delay: 1s;
+      }
+      .animation-delay-1500 {
+        animation-delay: 1.5s;
+      }
+      
+      /* Gradient animation */
+      @keyframes gradient {
+        0%, 100% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+      }
+      .animate-gradient {
+        background-size: 200% 200%;
+        animation: gradient 3s ease infinite;
+      }
+      
+      /* Glow effect */
+      .drop-shadow-glow {
+        filter: drop-shadow(0 0 10px currentColor);
       }
     </style>
     <script type="importmap">
